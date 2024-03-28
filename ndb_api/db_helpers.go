@@ -114,8 +114,8 @@ func GenerateProvisioningRequest(ctx context.Context, ndb_client *ndb_client.NDB
 		log.Error(err, "Error while appending provisioning request")
 		return
 	}
-
 	requestBody, err = appender.appendProvisioningRequest(requestBody, database, reqData)
+	util.ToString(requestBody)
 	if err != nil {
 		log.Error(err, "Error while appending provisioning request")
 	}
@@ -361,18 +361,23 @@ func (a *PostgresHARequestAppender) appendProvisioningRequest(req *DatabaseProvi
 	dbPassword := reqData[common.NDB_PARAM_PASSWORD].(string)
 	databaseNames := database.GetInstanceDatabaseNames()
 	req.SSHPublicKey = reqData[common.NDB_PARAM_SSH_PUBLIC_KEY].(string)
-
 	// Set the number of nodes to 5, 3 Postgres nodes + 2 HA Proxy nodes
 	req.NodeCount = 5
 	setNodesParameters(req, database)
 
 	// Set clustered to true
 	req.Clustered = true
-
-	// Default action arguments
+	failoverMode := database.GetAdditionalArguments()["failover_mode"]
+	if failoverMode == "" {
+		failoverMode = "Automatic"
+	}
+	proxyReadPort := database.GetAdditionalArguments()["proxy_read_port"]
+	if proxyReadPort == "" {
+		proxyReadPort = "5001"
+	}
 	actionArguments := map[string]string{
 		/* Non-Configurable from additionalArguments*/
-		"proxy_read_port":         "5001",
+		"proxy_read_port":         proxyReadPort,
 		"listener_port":           "5432",
 		"proxy_write_port":        "5000",
 		"enable_synchronous_mode": "true",
@@ -382,7 +387,7 @@ func (a *PostgresHARequestAppender) appendProvisioningRequest(req *DatabaseProvi
 		"database_names":          databaseNames,
 		"provision_virtual_ip":    "true",
 		"deploy_haproxy":          "true",
-		"failover_mode":           "Automatic",
+		"failover_mode":           failoverMode,
 		"node_type":               "database",
 		"allocate_pg_hugepage":    "false",
 		"cluster_database":        "false",
@@ -396,7 +401,7 @@ func (a *PostgresHARequestAppender) appendProvisioningRequest(req *DatabaseProvi
 	if err := setConfiguredActionArguments(database, actionArguments); err != nil {
 		return nil, err
 	}
-
+	ctrllog.Log.Info("test4")
 	// Converting action arguments map to list and appending to req.ActionArguments
 	req.ActionArguments = append(req.ActionArguments, convertMapToActionArguments(actionArguments)...)
 
