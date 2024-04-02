@@ -107,8 +107,8 @@ func GetAllowedAdditionalArgumentsForDatabase(dbType string) (map[string]bool, e
 	case common.DATABASE_TYPE_POSTGRES:
 		return map[string]bool{
 			/* Has a default */
-			"proxy_read_port":         true,
 			"listener_port":           true,
+			"proxy_read_port":         true,
 			"proxy_write_port":        true,
 			"enable_synchronous_mode": true,
 			"auto_tune_staging_drive": true,
@@ -117,8 +117,8 @@ func GetAllowedAdditionalArgumentsForDatabase(dbType string) (map[string]bool, e
 			"database_names":          true,
 			"provision_virtual_ip":    true,
 			"deploy_haproxy":          true,
-			"failover_mode":           true,
-			"node_type":               true,
+			"failover_mode":           true, // I don't think we need this
+			"node_type":               true, // I don't think we need this
 			"allocate_pg_hugepage":    true,
 			"cluster_database":        true,
 			"archive_wal_expire_days": true,
