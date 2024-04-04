@@ -120,9 +120,18 @@ test: manifests generate fmt vet envtest ## Run tests.
 build: generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
+.PHONY: buildDebug
+buildDebug: generate fmt vet ## Build manager binary.
+	go build -gcflags='-N -l' -o bin/manager main.go
+
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host. 
 	ENABLE_WEBHOOKS=false go run ./main.go
+
+.PHONY: runDebug
+runDebug: manifests generate fmt vet ## Run a controller from your host.
+	ENABLE_WEBHOOKS=false dlv debug --headless --listen=:2345 --api-version=2 --accept-multiclient ./main.go
+
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
