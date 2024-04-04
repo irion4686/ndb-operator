@@ -2,7 +2,7 @@ package ndb_api
 
 import (
 	"context"
-
+	"github.com/nutanix-cloud-native/ndb-operator/api/v1alpha1"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -141,4 +141,9 @@ func (m *MockDatabaseInterface) GetAdditionalArguments() map[string]string {
 func (m *MockDatabaseInterface) GetInstanceIsHighAvailability() bool {
 	args := m.Called()
 	return args.Bool(0)
+}
+
+func (m *MockDatabaseInterface) GetInstanceNodes() []*v1alpha1.Node {
+	args := m.Called()
+	return args.Get(0).([]*v1alpha1.Node)
 }
