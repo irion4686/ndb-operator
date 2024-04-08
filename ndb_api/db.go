@@ -172,14 +172,18 @@ func ProvisionDatabase(ctx context.Context, ndbClient *ndb_client.NDBClient, req
 				err = fmt.Errorf("POST databases/provision responded with nil response")
 			}
 		}
-		log.Error(err, "Error occurred provisioning database")
+		body, readErr := io.ReadAll(res.Body)
+		log.Error(err, fmt.Sprintf("Error occurred provisioning database: %s", string(body))) // added this temporarily as currently there is no error message as to why the request failed. This body generally contains an explanation
+		if readErr != nil {
+			log.Info(readErr.Error())
+		}
 		return
 	}
 	log.Info("POST databases/provision", "HTTP status code", res.StatusCode)
 	body, err := io.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
-		log.Error(err, "Error occurred reading response.Body in ProvisionDatabase")
+		log.Error(err, "Error occurred reading response in ProvisionDatabase")
 		return
 	}
 	err = json.Unmarshal(body, &task)
