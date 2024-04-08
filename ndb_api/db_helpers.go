@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nutanix-cloud-native/ndb-operator/api/v1alpha1"
 	"strconv"
 
 	"github.com/nutanix-cloud-native/ndb-operator/common"
@@ -304,57 +305,86 @@ func (a *PostgresRequestAppender) appendProvisioningRequest(req *DatabaseProvisi
 	return req, nil
 }
 
-func setNodesParameters(req *DatabaseProvisionRequest, database DatabaseInterface) {
+func setNodesParameters(req *DatabaseProvisionRequest, database DatabaseInterface) (nodeErrors error) {
 	// Clear the original req.Nodes array
 	req.Nodes = []Node{}
 
 	// Create node object for HA Proxy
-	for i := 0; i < 2; i++ {
-		// Hard coding the HA Proxy properties
-		props := make([]map[string]string, 1)
-		props[0] = map[string]string{
-			"name":  "node_type",
-			"value": "haproxy",
-		}
-		req.Nodes = append(req.Nodes, Node{
-			Properties:  props,
-			VmName:      database.GetName() + "_haproxy" + strconv.Itoa(i+1),
-			NxClusterId: database.GetClusterId(),
-		})
+	nodeCount := len(database.GetInstanceNodes())
+	req.NodeCount = nodeCount
+	const MinReqNodes = 2
+	if nodeCount < MinReqNodes {
+		return fmt.Errorf("invalid node count: HA instance needs at least %d nodes, given: %d", MinReqNodes, nodeCount)
 	}
-
-	// Create node object for Database Instances
-	for i := 0; i < 3; i++ {
-		// Hard coding the DB properties
-		props := make([]map[string]string, 4)
-		props[0] = map[string]string{
-			"name":  "role",
-			"value": "Secondary",
+	for i := 0; i < nodeCount; i++ {
+		currentNode := database.GetInstanceNodes()[i]
+		nodeErrors = validateNodeRequest(currentNode)
+		if nodeErrors != nil {
+			return nodeErrors
 		}
-		// 1st node will be the primary node
-		if i == 0 {
-			props[0]["value"] = "Primary"
-		}
-		props[1] = map[string]string{
-			"name":  "failover_mode",
-			"value": "Automatic",
-		}
-		props[2] = map[string]string{
-			"name":  "node_type",
-			"value": "database",
-		}
-		props[3] = map[string]string{
-			"name":  "remote_archive_destination",
-			"value": "",
+		reqProps := database.GetInstanceNodes()[i].Properties
+		props := make([]map[string]string, 0)
+		for key, value := range reqProps {
+			props = append(props, map[string]string{
+				"name":  key,
+				"value": value,
+			})
 		}
 		req.Nodes = append(req.Nodes, Node{
 			Properties:       props,
-			VmName:           database.GetName() + "-" + strconv.Itoa(i+1),
+			VmName:           currentNode.VmName,
+			NxClusterId:      database.GetClusterId(), // change to use from currentNode on
 			NetworkProfileId: req.NetworkProfileId,
 			ComputeProfileId: req.ComputeProfileId,
-			NxClusterId:      database.GetClusterId(),
 		})
 	}
+	return nil
+	//// Create node object for Database Instances
+	//for i := 0; i < 3; i++ {
+	//	// Hard coding the DB properties
+	//	props := make([]map[string]string, 4)
+	//	props[0] = map[string]string{
+	//		"name":  "role",
+	//		"value": "Secondary",
+	//	}
+	//	// 1st node will be the primary node
+	//	if i == 0 {
+	//		props[0]["value"] = "Primary"
+	//	}
+	//	props[1] = map[string]string{
+	//		"name":  "failover_mode",
+	//		"value": "Automatic",
+	//	}
+	//	props[2] = map[string]string{
+	//		"name":  "node_type",
+	//		"value": "database",
+	//	}
+	//	props[3] = map[string]string{
+	//		"name":  "remote_archive_destination",
+	//		"value": "",
+	//	}
+	//	req.Nodes = append(req.Nodes, Node{
+	//		Properties:       props,
+	//		VmName:           database.GetName() + "-" + strconv.Itoa(i+1),
+	//		NetworkProfileId: req.NetworkProfileId,
+	//		ComputeProfileId: req.ComputeProfileId,
+	//		NxClusterId:      database.GetClusterId(),
+	//	})
+	//}
+}
+
+func validateNodeRequest(node *v1alpha1.Node) (nodeErrors error) {
+	if len(node.VmName) == 0 {
+		return fmt.Errorf("node VM name cannot be emtpy")
+	}
+	if len(node.NxClusterId) != 36 {
+		return fmt.Errorf("node NxClusterId must be a valid UUID")
+	}
+	properties := node.Properties
+	if properties == nil || len(properties) == 0 {
+		return fmt.Errorf("missing/empty properties for node: %s", node.VmName)
+	}
+	return nil
 }
 
 func (a *PostgresHARequestAppender) appendProvisioningRequest(req *DatabaseProvisionRequest, database DatabaseInterface, reqData map[string]interface{}) (*DatabaseProvisionRequest, error) {
@@ -362,8 +392,10 @@ func (a *PostgresHARequestAppender) appendProvisioningRequest(req *DatabaseProvi
 	databaseNames := database.GetInstanceDatabaseNames()
 	req.SSHPublicKey = reqData[common.NDB_PARAM_SSH_PUBLIC_KEY].(string)
 	// Set the number of nodes to 5, 3 Postgres nodes + 2 HA Proxy nodes
-	req.NodeCount = 5
-	setNodesParameters(req, database)
+	err := setNodesParameters(req, database)
+	if err != nil {
+		return nil, err
+	}
 
 	// Set clustered to true
 	req.Clustered = true
@@ -401,7 +433,6 @@ func (a *PostgresHARequestAppender) appendProvisioningRequest(req *DatabaseProvi
 	if err := setConfiguredActionArguments(database, actionArguments); err != nil {
 		return nil, err
 	}
-	ctrllog.Log.Info("test4")
 	// Converting action arguments map to list and appending to req.ActionArguments
 	req.ActionArguments = append(req.ActionArguments, convertMapToActionArguments(actionArguments)...)
 
