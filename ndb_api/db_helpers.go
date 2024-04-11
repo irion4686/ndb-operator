@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nutanix-cloud-native/ndb-operator/api/v1alpha1"
 	"strconv"
 
 	"github.com/nutanix-cloud-native/ndb-operator/common"
@@ -114,6 +115,7 @@ func GenerateProvisioningRequest(ctx context.Context, ndb_client *ndb_client.NDB
 		log.Error(err, "Error while appending provisioning request")
 		return
 	}
+
 	requestBody, err = appender.appendProvisioningRequest(requestBody, database, reqData)
 	util.ToString(requestBody)
 	if err != nil {
