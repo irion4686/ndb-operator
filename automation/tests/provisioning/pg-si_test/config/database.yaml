@@ -10,7 +10,7 @@ spec:
       - database_one
       - database_two
       - database_three
-    clusterId: <cluster-id>
+    clusterId: 3dbe4d67-c07d-43b1-8b6c-2813fc6da8ed
     credentialSecret: db-secret-pg-si
     size: 10
     timezone: "UTC"
