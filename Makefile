@@ -310,5 +310,3 @@ run-automation-provisioning-ha:
 		folders="$(PROVISIONING_FOLDERS)"; \
 	fi; \
 	go test $(DEFAULT_PROVISIONING_ROOT)$$folders -v -timeout 90m
-
-
